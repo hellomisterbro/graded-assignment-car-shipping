@@ -1,0 +1,59 @@
+img.bg {
+    /* Set rules to fill background */
+    min-height: 100%;
+    min-width: 1024px;
+
+    /* Set up proportionate scaling */
+    width: 100%;
+    height: auto;
+
+    /* Set up positioning */
+    position: fixed;
+    top: 0;
+    left: 0;
+
+    -webkit-filter: blur(3px);
+}
+
+@media screen and (max-width: 1024px) { /* Specific to this particular image */
+    img.bg {
+        left: 50%;
+        margin-left: -512px;   /* 50% */
+    }
+}
+
+#page-wrap-login {
+    position: relative;
+    width: 600px;
+    margin: 50px auto;
+    /*margin: auto;*/
+    padding: 40px;
+    background: rgba(255,255,255, 0.85);
+    border-radius: 5px;
+}
+#page-wrap-register {
+    position: relative;
+    width: 800px;
+    margin: 50px auto;
+    /*margin: auto;*/
+    padding: 40px;
+    background: rgba(255,255,255, 0.85);
+    border-radius: 5px;
+}
+
+h1.start-login {
+    position: relative;
+    width: 600px;
+    margin: 70px auto;
+    color: white;
+}
+
+h1.start-register {
+    position: relative;
+    width: 800px;
+    margin: 70px auto;
+    color: white;
+}
+
+
+
