@@ -33,6 +33,7 @@ function unset_newride_data()
 
 }
 
+
 $current_user = User::get_by_id($_SESSION["user"], $conn);
 $rides = array();
 if (isset($_POST["search"])) {
@@ -55,6 +56,7 @@ if (isset($_POST["search"])) {
         print "Herra!!!!!!!!";
         print $ride->start_point->name;
         print $ride->end_point->name;
+        print $ride->db_id;
         print " \n";
     }
 
@@ -68,9 +70,16 @@ if (isset($_POST["search"])) {
     <title>Search</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet"
+          href="../resources/library/bootstrap-datetimepicker-master/build/css/bootstrap-datetimepicker.min.css"/>
+
     <script src="../resources/library/jquery-3.1.1.min.js"></script>
     <script src="../resources/library/bootstrap-3.3.7-dist/js/bootstrap.min.js"></script>
+    <script src="../resources/library/bootstrap-sass-master/assets/javascripts/bootstrap/transition.js"></script>
+    <script src="../resources/library/bootstrap-sass-master/assets/javascripts/bootstrap/collapse.js"></script>
+    <script src="../resources/library/moment-master/moment.js"></script>
+    <script src="../resources/library/bootstrap-datetimepicker-master/src/js/bootstrap-datetimepicker.js"></script>
+
     <script src="https://maps.googleapis.com/maps/api/js?libraries=places&key=AIzaSyARNH2967Fosb0h9IQsVeh47AAT5FfY6EY"
             type="text/javascript"></script>
     <script type="text/javascript">
@@ -122,43 +131,47 @@ if (isset($_POST["search"])) {
                     </div>
 
                     <!--   Date picker 1-->
-                    <div class="form-group">
-                        <label>Departure from:</label>
-                        <div class='input-group date' id='datetimepicker1'>
-                            <input type='text' name="time1" class="form-control"/>
-                            <span class="input-group-addon">
+                    <div class="row">
+
+                        <div class='col-sm-3'>
+                            <div class="form-group">
+                                <label>Departure time:</label>
+                                <div class='input-group date' id='datetimepicker1'>
+                                    <input type='text' name="time1" class="form-control"/>
+                                    <span class="input-group-addon">
                                         <span class="glyphicon glyphicon-calendar"></span>
                                    </span>
+                                </div>
+                            </div>
                         </div>
+                        <script type="text/javascript">
+                            $(function () {
+                                $('#datetimepicker1').datetimepicker();
+                            });
+                        </script>
                     </div>
-                    <script type="text/javascript" src="../resources/library/moment-develop/moment.js"></script>
-                    <script type="text/javascript"
-                            src="../resources/library/bootstrap-datetimepicker-master/src/js/bootstrap-datetimepicker.js"></script>
-                    <script type="text/javascript">
-                        $(function () {
-                            $('#datetimepicker1').datetimepicker();
-                        });
-                    </script>
 
 
                     <!--   Date picker 2-->
-                    <div class="form-group">
-                        <label>Departure to:</label>
-                        <div class='input-group date' id='datetimepicker2'>
-                            <input type='text' name="time2" class="form-control"/>
-                            <span class="input-group-addon">
+                    <div class="row">
+
+                        <div class='col-sm-3'>
+                            <div class="form-group">
+                                <label>Departure time2:</label>
+                                <div class='input-group date' id='datetimepicker2'>
+                                    <input type='text' name="time2" class="form-control"/>
+                                    <span class="input-group-addon">
                                         <span class="glyphicon glyphicon-calendar"></span>
                                    </span>
+                                </div>
+                            </div>
                         </div>
+                        <script type="text/javascript">
+                            $(function () {
+                                $('#datetimepicker2').datetimepicker();
+                            });
+                        </script>
                     </div>
-                    <script type="text/javascript" src="../resources/library/moment-develop/moment.js"></script>
-                    <script type="text/javascript"
-                            src="../resources/library/bootstrap-datetimepicker-master/src/js/bootstrap-datetimepicker.js"></script>
-                    <script type="text/javascript">
-                        $(function () {
-                            $('#datetimepicker2').datetimepicker();
-                        });
-                    </script>
 
 
                     <!--    Submit button-->
@@ -190,7 +203,7 @@ if (isset($_POST["search"])) {
                             <img src="./img/content/user-blank.png" class="img-circle" alt="Cinque Terre" width="100"
                                  height="100">
                             <h4><?php echo $ride->user->name ?></h4>
-                            <button type="text" class="btn btn-primary">You are a driver</button>
+
                         </div>
                         <div class="col-sm-8">
                             <h3><?php echo $ride->start_point->name ?> - <?php echo $ride->end_point->name ?>
@@ -212,12 +225,12 @@ if (isset($_POST["search"])) {
                                     <h5>Places left:</h5>
                                 </div>
                                 <div class="col-sm-10">
-                                    <h5><?php echo $ride->reserved_places ?></h5>
+                                    <h5><?php echo $ride->reservation_places ?></h5>
                                 </div>
                             </div>
                         </div>
                         <div class="col-sm-1">
-                            <button type="text" class="btn btn-primary">Join</button>
+                            <button type="text" class="btn btn-primary" onclick="location.href='userpage.php?value_key=<?php echo $ride->db_id?>'">Join</button>
                         </div>
                     </div>
                 </div>

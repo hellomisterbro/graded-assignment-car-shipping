@@ -173,7 +173,7 @@ if (isset($_POST["search"])) {
     </form>
 
     <?php
-
+    if(isset($rides))
     foreach ($rides as &$ride) {
 
 

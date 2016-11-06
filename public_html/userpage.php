@@ -19,44 +19,66 @@ require_once("../protected/model/Location.php");
 require_once("../protected/model/Ride.php");
 require_once("../protected/model/User.php");
 require_once("../protected/API/GoogleApi.php");
-require_once("dbconnect.php");
+require_once("../protected/model/Passenger.php");
+
 
 function unset_newride_data()
 {
-    unset($_POST["search"]);
-    unset($_POST["startpoint"]);
+    unset($_POST["submit"]);
+    unset($_POST["time"]);
     unset($_POST["endpoint"]);
-    unset($_POST["time1"]);
-    unset($_POST["time2"]);
-    unset($_POST[""]);
-    unset($_POST[""]);
+    unset($_POST["startpoint"]);
+    unset($_POST["note"]);
+    unset($_POST["price"]);
+    unset($_POST["place_qty"]);
 
 }
 
 $current_user = User::get_by_id($_SESSION["user"], $conn);
 
-if (isset($_POST["search"])) {
-    print $_POST["startpoint"];
-    print $_POST["endpoint"];
-    print $_POST["time1"];
-    print $_POST["time2"];
-
-    $start_point = GoogleApi::geocode($_POST["startpoint"]);
-    $end_point = GoogleApi::geocode($_POST["endpoint"]);
-    $start_time = DateTime::createFromFormat("m/d/Y h:i A", $_POST["time1"]);
-    $end_time = DateTime::createFromFormat("m/d/Y h:i A", $_POST["time2"]);
-
-    $rides = Ride::get_indentical_locations($start_point->lat, $end_point->lat,
-        $start_point->lg, $end_point->lg,$start_time, $end_time , $conn);
+if (isset($_GET['value_key'])) {
+    print "";
+    $ride_id = $_GET['value_key'];
+    Ride::join_ride($current_user->db_id, $ride_id, $conn);
+}
 
 
+if (isset($_POST["submit"])) {
 
-    foreach ($rides as $ride) {
-        print "Herra!!!!!!!!";
-        print $ride->start_point->name;
-        print $ride->end_point->name;
-        print " \n";
+    $start_point = GoogleApi::geocode($_POST['startpoint']);
+    $end_point = GoogleApi::geocode($_POST['endpoint']);
+
+    $start_point->db_id = Location::save_to_DB($conn, $start_point);
+    $end_point->db_id = Location::save_to_DB($conn, $end_point);
+
+    $ride = new Ride();
+    $ride->exeptions_days = array();
+
+    $count = 0;
+    $key = "exdatepicker" . strval($count);
+    while (isset($_POST[$key])) {
+        $key = "exdatepicker" . strval($count);
+        $ride->add_day($_POST[$key]);
+        $count++;
     }
+
+    array_pop($ride->exeptions_days);
+
+    foreach ($ride->exeptions_days as $exeptions_day) {
+        $s =  $exeptions_day->format("Y-m-d H:i:s");
+
+    }
+    $ride->user = $current_user;
+    $ride->start_time = DateTime::createFromFormat("m/d/Y h:i A", $_POST["time"]);
+    $ride->end_time = new DateTime();
+    $ride->start_point = $start_point;
+    $ride->end_point = $end_point;
+    $ride->note = $_POST["note"];
+    $ride->weekly = isset($_POST["weekly"])?0:1;
+    $ride->price = doubleval($_POST["price"]);
+    $ride->reservation_places = intval($_POST["place_qty"]);
+
+    Ride::save_to_DB($conn, $ride);
 
     unset_newride_data();
 }
@@ -65,12 +87,19 @@ if (isset($_POST["search"])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Search</title>
+    <title>User</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <link rel="stylesheet"
+          href="../resources/library/bootstrap-datetimepicker-master/build/css/bootstrap-datetimepicker.min.css"/>
+
     <script src="../resources/library/jquery-3.1.1.min.js"></script>
     <script src="../resources/library/bootstrap-3.3.7-dist/js/bootstrap.min.js"></script>
+    <script src="../resources/library/bootstrap-sass-master/assets/javascripts/bootstrap/transition.js"></script>
+    <script src="../resources/library/bootstrap-sass-master/assets/javascripts/bootstrap/collapse.js"></script>
+    <script src="../resources/library/moment-master/moment.js"></script>
+    <script src="../resources/library/bootstrap-datetimepicker-master/src/js/bootstrap-datetimepicker.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?libraries=places&key=AIzaSyARNH2967Fosb0h9IQsVeh47AAT5FfY6EY"
             type="text/javascript"></script>
     <script type="text/javascript">
@@ -87,23 +116,134 @@ if (isset($_POST["search"])) {
         google.maps.event.addDomListener(window, 'load', initialize_end);
     </script>
 
+    <style type="text/css">
 
+
+    </style>
     <link rel="stylesheet" href="css/navbar.css">
 </head>
 <body>
 <div class="container">
+
+    <div class="container">
+        <div class="row">
+
+            <!-- profile image-->
+            <div class="col-sm-3">
+                <div class="container">
+                    <br>
+                    <img src="./img/content/user-blank.png" class="img-circle" alt="Cinque Terre" width="225"
+                         height="225">
+                    <h2><?php echo $current_user->name ?></h2>
+                </div>
+            </div>
+
+            <!-- user information -->
+            <div class="col-sm-9">
+                <div class="row">
+                    <div class="col-sm-1">
+                        <h5>Name: </h5>
+
+                    </div>
+                    <div class="col-sm-11">
+                        <h5><?php echo $current_user->name ?></h5>
+                    </div>
+                    <div class="col-sm-1">
+                        <h5>About: </h5>
+
+                    </div>
+                    <div class="col-sm-11">
+                        <h5><?php echo $current_user->desc ?></h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <br><br>
+    <?php
+    $arr = Ride::get_rides_for_user($current_user->db_id, $conn);
+    $arr1 = Passenger::get_by_userid($current_user->db_id, $conn);
+    foreach ($arr as &$ride) {
+    ?>
+    <!--    ride-->
+    <div class="container">
+        <div class="panel panel-default">
+            <div class="panel-heading"> <?php echo $ride->start_time->format("d M, Y") ?></div>
+
+            <div class="panel-body">
+                <div class="row">
+                    <div class="col-sm-2">
+                        <img src="./img/content/user-blank.png" class="img-circle" alt="Cinque Terre" width="100"
+                             height="100">
+                        <h4><?php echo $ride->user->name ?></h4>
+                        <?php
+                        if ($ride->user->db_id == $current_user->db_id) {
+                            ?>
+                            <span class="label label-info">You are a driver</span>
+                            <?php
+                        } else {
+                            ?>
+                            <span class="label label-info">You are a passanger</span>
+                            <?php
+                        }
+                        ?>
+                        </div>
+                        <div class="col-sm-8">
+                            <h3><?php echo $ride->start_point->name ?> - <?php echo $ride->end_point->name ?>
+                                ,<?php echo $ride->start_time->format("H:i") ?></h3>
+                            <h4>approx. time of arrival ~ <?php echo $ride->end_time->format("H:i") ?> </h4>
+                            <div class="row">
+                                <div class="col-sm-1">
+                                    <h5>Note:</h5>
+                                </div>
+                                <div class="col-sm-10">
+                                    <h5><?php echo $ride->note ?></h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-1">
+                            <button type="text" class="btn btn-primary">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+    ?>
+
 
     <br>
     <br>
     <br>
     <!--    Adding a new ride-->
     <form method="post">
-        <div class="container" id="newRide">
+        <div class="container" id="newRide" style="display: none">
             <div class="panel panel-default">
-                <div class="panel-heading"></div>
+                <div class="panel-heading"> New trip</div>
                 <div class="panel-body">
                     <!--    Adding a new ride-->
+                    <!--    Adding a datepicker-->
+                    <div class="row">
 
+                        <div class='col-sm-3'>
+                            <div class="form-group">
+                                <label>Departure time:</label>
+                                <div class='input-group date' id='datetimepicker1'>
+                                    <input type='text' name="time" class="form-control"/>
+                                    <span class="input-group-addon">
+                                        <span class="glyphicon glyphicon-calendar"></span>
+                                   </span>
+                                </div>
+                            </div>
+                        </div>
+                        <script type="text/javascript">
+                            $(function () {
+                                $('#datetimepicker1').datetimepicker();
+                            });
+                        </script>
+                    </div>
 
                     <!--    Adding a start point input usgin Google Api-->
                     <div class="form-group">
@@ -121,112 +261,151 @@ if (isset($_POST["search"])) {
                         <!--                        <span class="glyphicon glyphicon-map-marker"></span>-->
                     </div>
 
-                    <!--   Date picker 1-->
-                    <div class="form-group">
-                        <label>Departure from:</label>
-                        <div class='input-group date' id='datetimepicker1'>
-                            <input type='text' name="time1" class="form-control"/>
-                            <span class="input-group-addon">
-                                        <span class="glyphicon glyphicon-calendar"></span>
-                                   </span>
+                    <!--    Weekly chrckbox-->
+                    <form method="post">
+                    <div class="checkbox">
+                        <script>
+                            $(document).ready(function () {
+                                $('[data-toggle="popover"]').popover();
+                            });
+                        </script>
+                        <label>
+                            <input type="checkbox" name ="weekly" id="weekly_checkbox" value="">Weekly
+                        </label>
+                        (<a title="Info" data-toggle="popover" data-trigger="hover"
+                            data-content="By checking it you state that you will do your ride every week">See info</a>)
+                    </div>
+                        </form>
+                    <label>Add new exeption date:</label>
+
+                    <div class="row">
+                        <div class='col-sm-12'>
+                            <div class='col-sm-6'>
+                                <div class="mytemplate" style="display: none;padding: 10px 0px">
+                                    <input class="datepicker" id="exdatepicker0" type="text" />
+                                    <br>
+                                </div>
+                                <div class="dates" style="padding: 10px 0px">
+                                    <div>
+                                        <input class="datepicker" name="exdatepicker0" type="text"/>
+                                    </div>
+                                </div>
+                                <input type="button" class="addmore" value="Add more">
+                                <br><br>
+                                <script>
+                                    var idCount = 1;
+                                    $(document).ready(function () {
+                                        $('.addmore').on('click', function () {
+
+                                            var element = $(".mytemplate").clone();
+                                            element.removeClass("mytemplate").show().appendTo(".dates");
+                                            console.log(element.children()[0]);
+                                            var datepickerEl = element.children()[0];
+                                            datepickerEl.name = "exdatepicker" + idCount;
+                                            idCount++;
+                                            ;
+                                        });
+                                        $(document).on("focus", ".datepicker", function () {
+                                            $(this).datepicker();
+                                        });
+                                    });
+
+                                </script>
+                            </div>
+
+
+                            <div class='col-sm-6'>
+                                <div class="row">
+                                    <div class='col-sm-6'>
+
+                                    </div>
+
+
+                                </div>
+
+                            </div>
+                            <div class='col-sm-4'></div>
                         </div>
                     </div>
-                    <script type="text/javascript" src="../resources/library/moment-develop/moment.js"></script>
-                    <script type="text/javascript"
-                            src="../resources/library/bootstrap-datetimepicker-master/src/js/bootstrap-datetimepicker.js"></script>
-                    <script type="text/javascript">
-                        $(function () {
-                            $('#datetimepicker1').datetimepicker();
-                        });
-                    </script>
-
-
-                    <!--   Date picker 2-->
+                    <!--    Number of people in the car-->
                     <div class="form-group">
-                        <label>Departure to:</label>
-                        <div class='input-group date' id='datetimepicker2'>
-                            <input type='text' name="time2" class="form-control"/>
-                            <span class="input-group-addon">
-                                        <span class="glyphicon glyphicon-calendar"></span>
-                                   </span>
-                        </div>
+                        <label for="sel1">Select list:</label>
+                        <select name="place_qty" class="form-control" id="sel1">
+                            <option>1</option>
+                            <option>2</option>
+                            <option>3</option>
+                            <option>4</option>
+                        </select>
                     </div>
-                    <script type="text/javascript" src="../resources/library/moment-develop/moment.js"></script>
-                    <script type="text/javascript"
-                            src="../resources/library/bootstrap-datetimepicker-master/src/js/bootstrap-datetimepicker.js"></script>
-                    <script type="text/javascript">
-                        $(function () {
-                            $('#datetimepicker2').datetimepicker();
-                        });
-                    </script>
+                    <!--  A note for the trip-->
+                    <div class="form-group">
+                        <label for="comment">Please enter a note for your trip:</label>
+                        <textarea class="form-control" name="note" rows="5" id="comment"
+                                  style="resize: none"></textarea>
+                    </div>
 
+                    <!--   Price-->
+                    <div class="form-group">
+                        <label for="prc">Price per person (dollars):</label>
+                        <input type="text" pattern=".{3,}" required title="3 characters minimum" name="price"
+                               class="form-control number-only" id="prc">
+                        <script>
+                            $("input.number-only").bind({
+                                keydown: function (e) {
+                                    if (this.value.length > 5 && e.which != 8) {
+                                        return false;
+                                    }
+                                    if (e.shiftKey === true) {
+                                        if (e.which == 9) {
+                                            return true;
+                                        }
+                                        return false;
+                                    }
+                                    if (e.which > 57) {
+                                        return false;
+                                    }
+                                    if (e.which == 32) {
+                                        return false;
+                                    }
+                                    return true;
+                                }
+                            });
+                            $('input.number-only').keyup(function () {
+
+                            });
+                        </script>
+                    </div>
 
                     <!--    Submit button-->
                     <div style="float: right;">
-                        <button type="search" name="search" class="btn btn-primary">Search</button>
+                        <button type="submit" name="submit" class="btn btn-primary">Submit</button>
                         <br>
                     </div>
 
                 </div>
             </div>
+
+
         </div>
+        <div style="float: right;">
+            <button id="addBtn" type="button" class="btn btn-primary">Add new ride</button>
+            <script>
+                document.getElementById("addBtn").addEventListener("click", myFunction);
+
+                function myFunction() {
+                    document.getElementById("addBtn").style.display = "none";
+                    document.getElementById("newRide").style.display = "block";
+                    window.scrollBy(0, 1000)
+                }
+            </script>
+
+            <br>
+        </div>
+
     </form>
-
-    <?php
-
-    foreach ($rides as &$ride) {
-
-
-        ?>
-        <div class="container">
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <?php echo $ride->start_time->format("d M, Y") ?>
-                </div>
-
-                <div class="panel-body">
-                    <div class="row">
-                        <div class="col-sm-2">
-                            <img src="./img/content/user-blank.png" class="img-circle" alt="Cinque Terre" width="100"
-                                 height="100">
-                            <h4><?php echo $ride->user->name ?></h4>
-                            <button type="text" class="btn btn-primary">You are a driver</button>
-                        </div>
-                        <div class="col-sm-8">
-                            <h3><?php echo $ride->start_point->name ?> - <?php echo $ride->end_point->name ?>
-                                ,<?php echo $ride->start_time->format("H:i") ?></h3>
-
-                            <h4>approx. time of arrival ~ <?php echo $ride->end_time->format("H:i") ?> </h4>
-
-                            <div class="row">
-                                <div class="col-sm-1">
-                                    <h5> Note:</h5>
-                                </div>
-                                <div class="col-sm-10">
-                                    <h5><?php echo $ride->note ?></h5>
-
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-sm-1">
-                                    <h5>Places left:</h5>
-                                </div>
-                                <div class="col-sm-10">
-                                    <h5><?php echo $ride->reserved_places ?></h5>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-sm-1">
-                            <button type="text" class="btn btn-primary">Join</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <?php
-    }
-    ?>
-</div>
+    <!--    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css" />-->
+    <!--    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker3.min.css" />-->
+    <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/js/bootstrap-datepicker.min.js"></script>
 
 </body>
 </html>

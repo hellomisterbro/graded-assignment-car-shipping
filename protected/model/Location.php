@@ -23,7 +23,6 @@ class Location
         $id++;
         $query = "INSERT INTO `location`( `id`,`name`, `lat`, `lg`)
                   VALUES ($id, '$location->name', $location->lat, $location->lg)";
-        print $query;
         $res = mysqli_query($conn, $query);
         return $res ? $id : null;
     }

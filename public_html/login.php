@@ -23,13 +23,16 @@ if (isset($_POST["submit"])) {
     $res = User::authorization($email, $pass, $conn);
     if (is_null($res)){
         $err = "Wrong password.";
+        unset_userdata();
     } else {
         $_SESSION['user'] = $res;
         print $_SESSION["user"];
         header('Location: userpage.php');
+        unset_userdata();
+        exit();
     }
-    unset_userdata();
-    exit();
+
+
 }
 
 
