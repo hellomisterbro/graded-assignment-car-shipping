@@ -22,6 +22,8 @@ require_once("../protected/API/GoogleApi.php");
 require_once("../protected/model/Passenger.php");
 
 
+$price_per_km = 0.10;
+
 function unset_newride_data()
 {
     unset($_POST["submit"]);
@@ -29,58 +31,120 @@ function unset_newride_data()
     unset($_POST["endpoint"]);
     unset($_POST["startpoint"]);
     unset($_POST["note"]);
-    unset($_POST["price"]);
     unset($_POST["place_qty"]);
+    $count = 0;
+    $key = "exdatepicker" . strval($count);
+    while (isset($_POST[$key])) {
+        $key = "exdatepicker" . strval($count);
+        unset($_POST[$key]);
+        $count++;
+    }
 
 }
 
 $current_user = User::get_by_id($_SESSION["user"], $conn);
 
 if (isset($_GET['value_key'])) {
-    print "";
+
     $ride_id = $_GET['value_key'];
     Ride::join_ride($current_user->db_id, $ride_id, $conn);
 }
 
+if (isset($_GET["cancel_id"])) {
+    $ride_id = $_GET["cancel_id"];
+    $ride = Ride::get_by_id($ride_id, $conn);
+    if ($ride->user->db_id == $current_user->db_id) {
+        Passenger::delete_by_ride($ride->db_id, $conn);
+        Ride::delete_by_id($ride_id, $conn);
+    } else {
+        Ride::unjoin($current_user->db_id, $ride_id, $conn);
+    }
+    header("Location: userpage.php");
+    unset($_GET["cancel_id"]);
+    exit();
+}
 
 if (isset($_POST["submit"])) {
-
     $start_point = GoogleApi::geocode($_POST['startpoint']);
     $end_point = GoogleApi::geocode($_POST['endpoint']);
 
-    $start_point->db_id = Location::save_to_DB($conn, $start_point);
-    $end_point->db_id = Location::save_to_DB($conn, $end_point);
+    $success = true;
+
+    if ($success && !$start_point) {
+        $err = "Enter your start point.";
+        $success = false;
+
+    }
+
+    if ($success && !$end_point) {
+        $err = "Enter your end point";
+        $success = false;
+
+    }
 
     $ride = new Ride();
-    $ride->exeptions_days = array();
+    if($success) {
+        $ride->start_time = DateTime::createFromFormat("m/d/Y h:i A", $_POST["time"]);
+        if ( !$ride->start_time) {
+            $err = "Please enter your time";
+            $success = false;
+        }
 
-    $count = 0;
-    $key = "exdatepicker" . strval($count);
-    while (isset($_POST[$key])) {
+    }
+     if($success) {
+         $ride->reservation_places = intval($_POST["place_qty"]);
+     }
+    if ($success && !$ride->reservation_places) {
+        $err = "Please enter your number of places";
+        $success = false;
+    }
+
+    if ($success) {
+
+        $start_point->db_id = Location::save_to_DB($conn, $start_point);
+        $end_point->db_id = Location::save_to_DB($conn, $end_point);
+
+        ;
+        $ride->exeptions_days = array();
+
+        $count = 0;
         $key = "exdatepicker" . strval($count);
-        $ride->add_day($_POST[$key]);
-        $count++;
+        while (isset($_POST[$key])) {
+            $key = "exdatepicker" . strval($count);
+            $ride->add_day($_POST[$key]);
+            $count++;
+        }
+
+        array_pop($ride->exeptions_days);
+
+        foreach ($ride->exeptions_days as $exeptions_day) {
+            if ($exeptions_day) {
+                $s = $exeptions_day->format("Y-m-d H:i:s");
+            }
+        }
+        $ride->user = $current_user;
+
+        $ride->end_time = clone $ride->start_time;
+
+        $ride->start_point = $start_point;
+        $ride->end_point = $end_point;
+        $time_and_distance = GoogleApi::GetDrivingDistance($start_point->lat, $end_point->lat, $start_point->lg, $end_point->lg);
+        $ride->end_time = $ride->end_time->add(new DateInterval('PT' . $time_and_distance["hours"] . 'H' . $time_and_distance["minutes"] . 'M'));
+        $ride->note = $_POST["note"];
+        if (!$ride->note) {
+            $ride->note = "Note is not written.";
+        }
+        $ride->weekly = isset($_POST["weekly"]) ? 0 : 1;
+        if ($ride->weekly == 0) {
+            $ride->exeptions_days = array();
+        }
+        $ride->price = doubleval($time_and_distance["distance"]) * $price_per_km;
+
+        Ride::save_to_DB($conn, $ride);
+        unset_newride_data();
     }
 
-    array_pop($ride->exeptions_days);
 
-    foreach ($ride->exeptions_days as $exeptions_day) {
-        $s =  $exeptions_day->format("Y-m-d H:i:s");
-
-    }
-    $ride->user = $current_user;
-    $ride->start_time = DateTime::createFromFormat("m/d/Y h:i A", $_POST["time"]);
-    $ride->end_time = new DateTime();
-    $ride->start_point = $start_point;
-    $ride->end_point = $end_point;
-    $ride->note = $_POST["note"];
-    $ride->weekly = isset($_POST["weekly"])?0:1;
-    $ride->price = doubleval($_POST["price"]);
-    $ride->reservation_places = intval($_POST["place_qty"]);
-
-    Ride::save_to_DB($conn, $ride);
-
-    unset_newride_data();
 }
 ?>
 
@@ -124,7 +188,17 @@ if (isset($_POST["submit"])) {
 </head>
 <body>
 <div class="container">
+    <?php
+    if (isset($err)) {
 
+        ?>
+        <div class="alert alert-danger">
+            <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+            <strong>Oops.. </strong> <?php echo $err ?>
+        </div>
+        <?php
+    }
+    ?>
     <div class="container">
         <div class="row">
 
@@ -163,31 +237,31 @@ if (isset($_POST["submit"])) {
     <br><br>
     <?php
     $arr = Ride::get_rides_for_user($current_user->db_id, $conn);
-    $arr1 = Passenger::get_by_userid($current_user->db_id, $conn);
-    foreach ($arr as &$ride) {
-    ?>
-    <!--    ride-->
-    <div class="container">
-        <div class="panel panel-default">
-            <div class="panel-heading"> <?php echo $ride->start_time->format("d M, Y") ?></div>
 
-            <div class="panel-body">
-                <div class="row">
-                    <div class="col-sm-2">
-                        <img src="./img/content/user-blank.png" class="img-circle" alt="Cinque Terre" width="100"
-                             height="100">
-                        <h4><?php echo $ride->user->name ?></h4>
-                        <?php
-                        if ($ride->user->db_id == $current_user->db_id) {
-                            ?>
-                            <span class="label label-info">You are a driver</span>
+    foreach ($arr as &$ride) {
+        ?>
+        <!--    ride-->
+        <div class="container">
+            <div class="panel panel-default">
+                <div class="panel-heading"> <?php echo $ride->start_time->format("d M, Y") ?></div>
+
+                <div class="panel-body">
+                    <div class="row">
+                        <div class="col-sm-2">
+                            <img src="./img/content/user-blank.png" class="img-circle" alt="Cinque Terre" width="100"
+                                 height="100">
+                            <h4><?php echo $ride->user->name ?></h4>
                             <?php
-                        } else {
+                            if ($ride->user->db_id == $current_user->db_id) {
+                                ?>
+                                <span class="label label-info">You are a driver</span>
+                                <?php
+                            } else {
+                                ?>
+                                <span class="label label-info">You are a passanger</span>
+                                <?php
+                            }
                             ?>
-                            <span class="label label-info">You are a passanger</span>
-                            <?php
-                        }
-                        ?>
                         </div>
                         <div class="col-sm-8">
                             <h3><?php echo $ride->start_point->name ?> - <?php echo $ride->end_point->name ?>
@@ -201,9 +275,28 @@ if (isset($_POST["submit"])) {
                                     <h5><?php echo $ride->note ?></h5>
                                 </div>
                             </div>
+                            <div class="row">
+                                <div class="col-sm-1">
+                                    <h5>Price:</h5>
+                                </div>
+                                <div class="col-sm-10">
+                                    <h5><?php echo $ride->price ?>$</h5>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-1">
+                                    <h5>weekly:</h5>
+                                </div>
+                                <div class="col-sm-10">
+                                    <h5><?php echo  $ride->weekly?"YES":"NO"?></h5>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-sm-1">
-                            <button type="text" class="btn btn-primary">Cancel</button>
+                            <button type="submit" name="cancel"
+                                    onclick="location.href='userpage.php?cancel_id=<?php echo $ride->db_id ?>'"
+                                    class="btn btn-primary">Cancel
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -263,26 +356,36 @@ if (isset($_POST["submit"])) {
 
                     <!--    Weekly chrckbox-->
                     <form method="post">
-                    <div class="checkbox">
-                        <script>
-                            $(document).ready(function () {
-                                $('[data-toggle="popover"]').popover();
-                            });
-                        </script>
-                        <label>
-                            <input type="checkbox" name ="weekly" id="weekly_checkbox" value="">Weekly
-                        </label>
-                        (<a title="Info" data-toggle="popover" data-trigger="hover"
-                            data-content="By checking it you state that you will do your ride every week">See info</a>)
-                    </div>
-                        </form>
+                        <div class="checkbox">
+                            <script>
+                                $(document).ready(function () {
+                                    $('[data-toggle="popover"]').popover();
+
+                                });
+                            </script>
+                            <label>
+                                <input type="checkbox" name="weekly" id="weekly_checkbox" value="">Weekly
+                                <script>
+                                    document.getElementById("addBtn").addEventListener("click", myFunction);
+
+                                    function myFunction() {
+                                        document.getElementById("newRide").style.display = "block";
+                                        window.scrollBy(0, 1000)
+                                    }
+                                </script>
+                            </label>
+                            (<a title="Info" data-toggle="popover" data-trigger="hover"
+                                data-content="By checking it you state that you will do your ride every week">See
+                                info</a>)
+                        </div>
+                    </form>
                     <label>Add new exeption date:</label>
 
                     <div class="row">
                         <div class='col-sm-12'>
                             <div class='col-sm-6'>
                                 <div class="mytemplate" style="display: none;padding: 10px 0px">
-                                    <input class="datepicker" id="exdatepicker0" type="text" />
+                                    <input class="datepicker" id="exdatepicker0" type="text"/>
                                     <br>
                                 </div>
                                 <div class="dates" style="padding: 10px 0px">
@@ -312,18 +415,7 @@ if (isset($_POST["submit"])) {
 
                                 </script>
                             </div>
-
-
-                            <div class='col-sm-6'>
-                                <div class="row">
-                                    <div class='col-sm-6'>
-
-                                    </div>
-
-
-                                </div>
-
-                            </div>
+                            <div class='col-sm-6'></div>
                             <div class='col-sm-4'></div>
                         </div>
                     </div>
@@ -342,38 +434,6 @@ if (isset($_POST["submit"])) {
                         <label for="comment">Please enter a note for your trip:</label>
                         <textarea class="form-control" name="note" rows="5" id="comment"
                                   style="resize: none"></textarea>
-                    </div>
-
-                    <!--   Price-->
-                    <div class="form-group">
-                        <label for="prc">Price per person (dollars):</label>
-                        <input type="text" pattern=".{3,}" required title="3 characters minimum" name="price"
-                               class="form-control number-only" id="prc">
-                        <script>
-                            $("input.number-only").bind({
-                                keydown: function (e) {
-                                    if (this.value.length > 5 && e.which != 8) {
-                                        return false;
-                                    }
-                                    if (e.shiftKey === true) {
-                                        if (e.which == 9) {
-                                            return true;
-                                        }
-                                        return false;
-                                    }
-                                    if (e.which > 57) {
-                                        return false;
-                                    }
-                                    if (e.which == 32) {
-                                        return false;
-                                    }
-                                    return true;
-                                }
-                            });
-                            $('input.number-only').keyup(function () {
-
-                            });
-                        </script>
                     </div>
 
                     <!--    Submit button-->
@@ -403,8 +463,6 @@ if (isset($_POST["submit"])) {
         </div>
 
     </form>
-    <!--    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker.min.css" />-->
-    <!--    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/css/datepicker3.min.css" />-->
     <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/js/bootstrap-datepicker.min.js"></script>
 
 </body>

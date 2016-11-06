@@ -8,6 +8,7 @@
 
 require_once("User.php");
 require_once("Location.php");
+require_once("Passenger.php");
 require_once("dbconnect.php");
 
 class Ride
@@ -29,9 +30,9 @@ class Ride
         echo $string;
         $format = "m/d/Y";
         $datetime = date_create_from_format($format, $string);
-
-        array_push($this->exeptions_days, $datetime);
-
+        if($datetime){
+            array_push($this->exeptions_days, $datetime);
+        }
     }
 
     public static function save_to_DB($conn, $ride)
@@ -48,13 +49,13 @@ class Ride
         $query = "INSERT INTO `ride`( `user_id`, `start_point_id`, `end_point_id`, `start_time`, `end_time`,`price`, `note`, `reservation_places`, `weekly`)
                   VALUES ($user_id,$start_point_id, $end_point_id,FROM_UNIXTIME($start_time),FROM_UNIXTIME($end_time), $ride->price, '$ride->note',$ride->reservation_places, $ride->weekly)";
         $res = mysqli_query($conn, $query);
-        print $query;
+
         if ($ride->exeptions_days) {
             foreach ($ride->exeptions_days as $exeptions_day) {
                 $mysqldate = date('Y-m-d', $exeptions_day->getTimestamp());
                 $query = "SELECT * FROM `ride` WHERE user_id =$user_id  AND start_point_id = $start_point_id AND end_point_id = $end_point_id  
                         AND start_time = FROM_UNIXTIME($start_time)AND end_time = FROM_UNIXTIME($end_time) AND price = $ride->price AND note = '$ride->note'";
-                print $query;
+
                 $res = mysqli_query($conn, $query);
                 $row = mysqli_fetch_array($res);
                 $ride_id = $row["id"];
@@ -62,7 +63,7 @@ class Ride
                 $res = mysqli_query($conn, $query);
             }
         }
-        print $query;
+
         return $res ? true : false;
     }
 
@@ -74,6 +75,7 @@ class Ride
             $ride = Ride::row_to_object($row, $conn);
             return $ride;
         }
+
         return null;
     }
 
@@ -85,6 +87,19 @@ class Ride
         $arr = array();
         while ($row = mysqli_fetch_array($res)) {
             array_push($arr, Ride::row_to_object($row, $conn));
+        }
+
+        $query = "SELECT * FROM `passenger` WHERE `user_id` = $user_id";
+        $res = mysqli_query($conn, $query);
+        while ($row = mysqli_fetch_array($res)){
+            $ride_id = $row["ride_id"];
+            $query = "SELECT * FROM `ride` WHERE `id` = $ride_id";
+            echo $query;
+            $res_rides = mysqli_query($conn, $query);
+            if($res_rides){
+                $row_ride = mysqli_fetch_array($res_rides);
+                array_push($arr, Ride::row_to_object($row_ride, $conn));
+            }
         }
         return $arr;
     }
@@ -100,7 +115,7 @@ class Ride
         $ride->start_time = new DateTime();
         $ride->start_time->setTimestamp(strtotime($row["start_time"]));
         $ride->end_time = new DateTime();
-        $ride->end_time->setTimestamp(strtotime($row["start_time"]));
+        $ride->end_time->setTimestamp(strtotime($row["end_time"]));
         $ride->start_time->format("Y-m-d H:i:s");
         $ride->price = $row["price"];
         $ride->note = $row["note"];
@@ -115,23 +130,26 @@ class Ride
         $sql_format = "Y-m-d H:i:s";
         $sql_time_1 = $start_time->format($sql_format);
         $sql_time_2 = $end_time->format($sql_format);
-
+        $radious_for_start_point = 50;
+        $radious_for_end_point = 50;
         $query = "SELECT * FROM `ride` R 
                     WHERE (R.start_point_id
-                    IN (SELECT id FROM `location` WHERE (ROUND(lat, 6) = ROUND($lat1, 6) 
-                      AND ROUND(lg, 6) = ROUND($lg1, 6))))
+                    IN (SELECT id FROM location WHERE ( 3959 * acos( cos( radians($lat1) ) * cos( radians( lat ) ) * cos( radians( lg ) - radians($lg1) ) + sin( radians($lat1) ) * sin( radians( lat ) ) ) ) < $radious_for_start_point))
                            AND (R.end_point_id IN 
-                           (SELECT id FROM `location` WHERE (ROUND(lat, 6) = ROUND($lat2, 6) AND ROUND(lg, 6) = ROUND($lg2, 6)))) 
-                      AND R.start_time >='$sql_time_1' AND R.start_time <= '$sql_time_2'";
-
+                           (SELECT id FROM location WHERE ( 3959 * acos( cos( radians($lat2) ) * cos( radians( lat ) ) * cos( radians( lg ) - radians($lg2) ) + sin( radians($lat2) ) * sin( radians( lat ) ) ) ) < $radious_for_end_point)) 
+                      AND ((R.start_time >='$sql_time_1' AND R.start_time <= '$sql_time_2') OR R.weekly = 1)";
+        print $query;
         $res = mysqli_query($conn, $query);
         $arr = array();
-        print $query;
         while ($row = mysqli_fetch_array($res)) {
             array_push($arr, Ride::row_to_object($row, $conn));
         }
 
         return $arr;
+    }
+
+    public static function get_closest_locations(){
+
     }
 
     public static function join_ride($user_id, $ride_id, $conn)
@@ -146,6 +164,20 @@ class Ride
         }
     }
 
+    public static function delete_by_id($ride_id, $conn)
+    {
+        $query = "DELETE FROM `ride` WHERE `id` = $ride_id";
+        $res = mysqli_query($conn, $query);
+        return $res ? true : false;
+    }
+
+    public static function unjoin($user_id, $ride_id, $conn){
+        Passenger::delete_by_user_and_ride($user_id, $ride_id, $conn);
+        $ride = Ride::get_by_id($ride_id, $conn);
+        $places = $ride->reservation_places + 1;
+        $query = "UPDATE `ride` SET `reservation_places`=$places WHERE id = $ride_id";
+        $res = mysqli_query($conn, $query);
+    }
 
     public static function parse_time($string)
     {

@@ -53,11 +53,10 @@ if (isset($_POST["search"])) {
 
 
     foreach ($rides as $ride) {
-        print "Herra!!!!!!!!";
         print $ride->start_point->name;
         print $ride->end_point->name;
         print $ride->db_id;
-        print " \n";
+
     }
 
     unset_newride_data();
@@ -135,7 +134,7 @@ if (isset($_POST["search"])) {
 
                         <div class='col-sm-3'>
                             <div class="form-group">
-                                <label>Departure time:</label>
+                                <label>Departure time from:</label>
                                 <div class='input-group date' id='datetimepicker1'>
                                     <input type='text' name="time1" class="form-control"/>
                                     <span class="input-group-addon">
@@ -157,7 +156,7 @@ if (isset($_POST["search"])) {
 
                         <div class='col-sm-3'>
                             <div class="form-group">
-                                <label>Departure time2:</label>
+                                <label>Departure time to:</label>
                                 <div class='input-group date' id='datetimepicker2'>
                                     <input type='text' name="time2" class="form-control"/>
                                     <span class="input-group-addon">
@@ -226,6 +225,14 @@ if (isset($_POST["search"])) {
                                 </div>
                                 <div class="col-sm-10">
                                     <h5><?php echo $ride->reservation_places ?></h5>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-1">
+                                    <h5>weekly:</h5>
+                                </div>
+                                <div class="col-sm-10">
+                                    <h5><?php echo  $ride->weekly?"YES":"NO"?></h5>
                                 </div>
                             </div>
                         </div>

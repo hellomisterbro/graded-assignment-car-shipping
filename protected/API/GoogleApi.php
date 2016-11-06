@@ -28,12 +28,42 @@ class GoogleApi
         $dist = $response_a['rows'][0]['elements'][0]['distance']['text'];
         $time = $response_a['rows'][0]['elements'][0]['duration']['text'];
 
-        return array('distance' => $dist, 'time' => $time);
+        $strtime= strval($time);
+         if($time && $dist) {
+             $datetime = date_create_from_format('z \g\o\d\z. Y \m\i\n', $strtime);
+             $nohours = false;
+             if (!$datetime) {
+                 $datetime = date_create_from_format('Y \m\i\n', $strtime);
+                 $nohours = true;
+             }
+             if (!$datetime) {return array('distance' => "0", 'minutes' => "0", 'hours' => "0");}
+             if (!$nohours) {
+                 $hours = $datetime->format("z");
+                 print $hours;
+             } else {
+                 $hours = "0";
+             }
+             $minutes = $datetime->format("Y");
+             print $minutes;
+             for ($var = 0; $var < 3; $var++) {
+                 if ($minutes[0] == '0') {
+                     $minutes = substr($minutes, 1);
+                 }
+             }
+             $dist = preg_replace('/[^0-9]/', '', $dist);
+             return array('distance' => $dist, 'minutes' => $minutes, 'hours' => $hours);
+         } else {
+             return array('distance' => "0", 'minutes' => "0", 'hours' => "0");
+         }
+
     }
 
     // function to geocode address, it will return false if unable to geocode address
 public static function geocode($address)
     {
+        if(!$address){
+            return false;
+        }
 
         // url encode the address
         $address = urlencode($address);
