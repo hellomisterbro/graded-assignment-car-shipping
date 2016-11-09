@@ -24,6 +24,7 @@ require_once("../protected/model/Passenger.php");
 
 $price_per_km = 0.10;
 
+
 function unset_newride_data()
 {
     unset($_POST["submit"]);
@@ -43,6 +44,9 @@ function unset_newride_data()
 }
 
 $current_user = User::get_by_id($_SESSION["user"], $conn);
+$default_image = "./img/content/user-blank.png";
+$user_image = $current_user->photo_path;
+print $user_image;
 
 if (isset($_GET['value_key'])) {
 
@@ -157,28 +161,19 @@ if (isset($_POST["submit"])) {
 
     <link rel="stylesheet"
           href="../resources/library/bootstrap-datetimepicker-master/build/css/bootstrap-datetimepicker.min.css"/>
+<!--    <link rel="stylesheet"-->
+<!--          href="../resources/library/bootstrap-datepicker-1.3.0/css/datepicker.css"/>-->
 
     <script src="../resources/library/jquery-3.1.1.min.js"></script>
     <script src="../resources/library/bootstrap-3.3.7-dist/js/bootstrap.min.js"></script>
     <script src="../resources/library/bootstrap-sass-master/assets/javascripts/bootstrap/transition.js"></script>
     <script src="../resources/library/bootstrap-sass-master/assets/javascripts/bootstrap/collapse.js"></script>
+    <script src="../resources/library/bootstrap-datepicker-1.3.0/js/bootstrap-datepicker.js"></script>
     <script src="../resources/library/moment-master/moment.js"></script>
     <script src="../resources/library/bootstrap-datetimepicker-master/src/js/bootstrap-datetimepicker.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?libraries=places&key=AIzaSyARNH2967Fosb0h9IQsVeh47AAT5FfY6EY"
             type="text/javascript"></script>
-    <script type="text/javascript">
-        function initialize_start() {
-            var input = document.getElementById('searchTextFieldStart');
-            var autocomplete = new google.maps.places.Autocomplete(input);
-        }
-        google.maps.event.addDomListener(window, 'load', initialize_start);
-        function initialize_end() {
-            ;
-            var input = document.getElementById('searchTextFieldEnd');
-            var autocomplete = new google.maps.places.Autocomplete(input);
-        }
-        google.maps.event.addDomListener(window, 'load', initialize_end);
-    </script>
+    <script src="js/userpage.js"></script>
 
     <style type="text/css">
 
@@ -206,7 +201,7 @@ if (isset($_POST["submit"])) {
             <div class="col-sm-3">
                 <div class="container">
                     <br>
-                    <img src="./img/content/user-blank.png" class="img-circle" alt="Cinque Terre" width="225"
+                    <img src="<?php echo $user_image? $user_image: $default_image?>" class="img-circle" alt="Cinque Terre" width="225"
                          height="225">
                     <h2><?php echo $current_user->name ?></h2>
                 </div>
@@ -332,9 +327,7 @@ if (isset($_POST["submit"])) {
                             </div>
                         </div>
                         <script type="text/javascript">
-                            $(function () {
-                                $('#datetimepicker1').datetimepicker();
-                            });
+                      
                         </script>
                     </div>
 
@@ -463,7 +456,7 @@ if (isset($_POST["submit"])) {
         </div>
 
     </form>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/js/bootstrap-datepicker.min.js"></script>
+<!--    <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/js/bootstrap-datepicker.min.js"></script>-->
 
 </body>
 </html>

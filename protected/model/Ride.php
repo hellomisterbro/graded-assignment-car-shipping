@@ -30,7 +30,7 @@ class Ride
         echo $string;
         $format = "m/d/Y";
         $datetime = date_create_from_format($format, $string);
-        if($datetime){
+        if ($datetime) {
             array_push($this->exeptions_days, $datetime);
         }
     }
@@ -91,12 +91,12 @@ class Ride
 
         $query = "SELECT * FROM `passenger` WHERE `user_id` = $user_id";
         $res = mysqli_query($conn, $query);
-        while ($row = mysqli_fetch_array($res)){
+        while ($row = mysqli_fetch_array($res)) {
             $ride_id = $row["ride_id"];
             $query = "SELECT * FROM `ride` WHERE `id` = $ride_id";
             echo $query;
             $res_rides = mysqli_query($conn, $query);
-            if($res_rides){
+            if ($res_rides) {
                 $row_ride = mysqli_fetch_array($res_rides);
                 array_push($arr, Ride::row_to_object($row_ride, $conn));
             }
@@ -138,18 +138,47 @@ class Ride
                            AND (R.end_point_id IN 
                            (SELECT id FROM location WHERE ( 3959 * acos( cos( radians($lat2) ) * cos( radians( lat ) ) * cos( radians( lg ) - radians($lg2) ) + sin( radians($lat2) ) * sin( radians( lat ) ) ) ) < $radious_for_end_point)) 
                       AND ((R.start_time >='$sql_time_1' AND R.start_time <= '$sql_time_2') OR R.weekly = 1)";
-        print $query;
         $res = mysqli_query($conn, $query);
         $arr = array();
         while ($row = mysqli_fetch_array($res)) {
             array_push($arr, Ride::row_to_object($row, $conn));
         }
 
+        //filter array for weekly results
+        $diff = abs($start_time->getTimestamp() - $end_time->getTimestamp());
+        $numDays = $diff/60/60/24;
+        foreach ($arr as $key => $item) {
+            if($item->weekly ){
+                $day_of_week = intval($item->start_time->format("N"));
+                $time_of_item = intval($item->start_time->format("Gis"));
+                $day_of_item = intval($item->start_time->format("N"));
+                $start_time_copy = clone $start_time;
+                $is_sutable = false;
+                if($numDays <7){
+                    $diff = 0;
+                    do{
+                        if(intval($start_time_copy->format("N")) == $day_of_week && (
+                            $day_of_item != intval($end_time->format("N"))
+                            || $time_of_item < intval($end_time->format("Gis")))){
+
+                            $is_sutable = true;
+                            break;
+                        }
+                        $diff = $end_time->getTimestamp() - $start_time_copy->getTimestamp();
+                        $start_time_copy->add(new DateInterval('P1D'));
+                    }while($diff > 0);
+
+                    if($item->start_time->getTimeStamp() > $end_time->getTimeStamp()){
+                        $is_sutable = false;
+                    }
+                    if(!$is_sutable){
+                        unset($arr[$key]);
+                    }
+                }
+            }
+        }
+
         return $arr;
-    }
-
-    public static function get_closest_locations(){
-
     }
 
     public static function join_ride($user_id, $ride_id, $conn)
@@ -171,7 +200,8 @@ class Ride
         return $res ? true : false;
     }
 
-    public static function unjoin($user_id, $ride_id, $conn){
+    public static function unjoin($user_id, $ride_id, $conn)
+    {
         Passenger::delete_by_user_and_ride($user_id, $ride_id, $conn);
         $ride = Ride::get_by_id($ride_id, $conn);
         $places = $ride->reservation_places + 1;

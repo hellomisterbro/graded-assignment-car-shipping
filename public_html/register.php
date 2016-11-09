@@ -34,6 +34,7 @@ if (isset($_POST["submit"])) {
     $user->password = $_POST["password"];
     $user->phone = $_POST["phonenum"];
     $user->country = $_POST["country"];
+    $user->desc = 'Information is not defined.';
 
     if (ValidyHandler::checkName($user->name, $err)
         && ValidyHandler::checkEmail($user->email, $err)
@@ -60,10 +61,9 @@ if (isset($_POST["submit"])) {
     <!--local-->
     <link rel="stylesheet" href="../resources/library/country-select-js-master/build/css/countrySelect.css">
     <link rel="stylesheet" href="css/background-image-form.css">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="../resources/library/bootstrap-3.3.7-dist/css/bootstrap.css">
+    <script src="../resources/library/jquery-3.1.1.min.js"></script>
+    <script src="../resources/library/bootstrap-3.3.7-dist/js/bootstrap.min.js"></script>
 
     <script src="../resources/library/country-select-js-master/build/js/countrySelect.min.js"></script>
 

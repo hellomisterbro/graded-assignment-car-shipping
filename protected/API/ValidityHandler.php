@@ -47,6 +47,11 @@ class ValidyHandler
             $error = "Name field is empty.";
             return false;
         }
+
+        if (strlen($name) < 6) {
+            $error = "Name is too short.";
+            return false;
+        }
         return true;
     }
 

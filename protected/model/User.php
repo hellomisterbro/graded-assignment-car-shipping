@@ -19,6 +19,7 @@ class User
     public $phone;
     public $country;
     public $desc;
+    public $photo_path;
     public $car;
     public $is_enabled;
     public $is_admin;
@@ -34,6 +35,35 @@ class User
         return $res ? true : false;
     }
 
+    public static function update_DB($user, $conn){
+        $db_user = User::get_by_id($user->db_id, $conn);
+
+        $car_id = $user->car->name =='' ? $db_user->car->db_id: Car::save_to_DB($conn, $user->car);
+        if(!$car_id){
+            $car_id = 'NULL';
+        }
+        if($user->photo_path!=''){
+            unlink($db_user->photo_path);
+        } else {
+            $user->photo_path = $db_user->photo_path;
+        }
+        $desc =  $conn->escape_string($user->desc);
+        $password = $user->password == ''?$db_user->password : hash('sha256', $user->password);;
+        if ($db_user){
+            $query = "UPDATE `user`
+                              SET `name` = '$user->name', `password` = '$password',`path_photo` = '$user->photo_path', `car_id` = $car_id,  `email` = '$user->email', `phone` = '$user->phone',
+                                    `country` = '$user->country', `desc` = '$desc', `is_enabled` = 0
+                              WHERE `id` = $user->db_id";
+            print $query;
+            $res = mysqli_query($conn, $query);
+            if($res){
+                return true;
+            } else{
+                return false;
+            }
+        }
+    }
+
     public static function get_by_id($id, $conn) {
         $query =  "SELECT * FROM `user` WHERE `id` ='$id'";
         $res = mysqli_query($conn, $query);
@@ -47,8 +77,8 @@ class User
             $user->phone = $row["phone"];
             $user->country = $row["country"];
             $user->desc = $row["desc"];
-            $car_id = $row["car"];
-//            $user->car = Car::get_by_id($car_id, $conn);
+            $user->photo_path = $row["path_photo"];
+            $user->car = Car::get_by_id($row["car_id"], $conn);
             $user->is_enabled = $row["is_enabled"];
             $user->is_admin= $row["is_admin"];
             return $user;
@@ -65,5 +95,6 @@ class User
         }
         return null;
     }
+
 
 }
