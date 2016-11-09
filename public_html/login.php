@@ -12,6 +12,8 @@ session_start();
 require_once("../protected/model/User.php");
 require_once("dbconnect.php");
 
+unset($_SESSION['user']);
+
 function unset_userdata(){
     unset($_POST["email"]);
     unset($_POST["password"]);
@@ -24,9 +26,11 @@ if (isset($_POST["submit"])) {
     if (is_null($res)){
         $err = "Wrong password.";
         unset_userdata();
+    } else if(!$res){
+        $err = "The credentials are wrong or you must be unblocked by admin.";
+        unset_userdata();
     } else {
         $_SESSION['user'] = $res;
-        print $_SESSION["user"];
         header('Location: userpage.php');
         unset_userdata();
         exit();

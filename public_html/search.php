@@ -37,10 +37,6 @@ function unset_newride_data()
 $current_user = User::get_by_id($_SESSION["user"], $conn);
 $rides = array();
 if (isset($_POST["search"])) {
-    print $_POST["startpoint"];
-    print $_POST["endpoint"];
-    print $_POST["time1"];
-    print $_POST["time2"];
 
     $start_point = GoogleApi::geocode($_POST["startpoint"]);
     $end_point = GoogleApi::geocode($_POST["endpoint"]);
@@ -49,16 +45,6 @@ if (isset($_POST["search"])) {
 
     $rides = Ride::get_indentical_locations($start_point->lat, $end_point->lat,
         $start_point->lg, $end_point->lg,$start_time, $end_time , $conn);
-
-
-
-    foreach ($rides as $ride) {
-        print $ride->start_point->name;
-        print $ride->end_point->name;
-        print $ride->db_id;
-
-    }
-
     unset_newride_data();
 }
 ?>
@@ -78,6 +64,7 @@ if (isset($_POST["search"])) {
     <script src="../resources/library/bootstrap-sass-master/assets/javascripts/bootstrap/collapse.js"></script>
     <script src="../resources/library/moment-master/moment.js"></script>
     <script src="../resources/library/bootstrap-datetimepicker-master/src/js/bootstrap-datetimepicker.js"></script>
+
 
     <script src="https://maps.googleapis.com/maps/api/js?libraries=places&key=AIzaSyARNH2967Fosb0h9IQsVeh47AAT5FfY6EY"
             type="text/javascript"></script>
@@ -143,11 +130,6 @@ if (isset($_POST["search"])) {
                                 </div>
                             </div>
                         </div>
-                        <script type="text/javascript">
-                            $(function () {
-                                $('#datetimepicker1').datetimepicker();
-                            });
-                        </script>
                     </div>
 
 
@@ -166,9 +148,17 @@ if (isset($_POST["search"])) {
                             </div>
                         </div>
                         <script type="text/javascript">
-                            $(function () {
-                                $('#datetimepicker2').datetimepicker();
+                            $('#datetimepicker1').datetimepicker();
+                            $('#datetimepicker2').datetimepicker({
+                                useCurrent: false //Important! See issue #1075
                             });
+                            $("#datetimepicker1").on("dp.change", function (e) {
+                                $('#datetimepicker2').data("DateTimePicker").minDate(e.date);
+                            });
+                            $("#datetimepicker2").on("dp.change", function (e) {
+                                $('#datetimepicker1').data("DateTimePicker").maxDate(e.date);
+                            });
+
                         </script>
                     </div>
 
@@ -199,7 +189,7 @@ if (isset($_POST["search"])) {
                 <div class="panel-body">
                     <div class="row">
                         <div class="col-sm-2">
-                            <img src="./img/content/user-blank.png" class="img-circle" alt="Cinque Terre" width="100"
+                            <img src="<?php echo $ride->user->photo_path?>" class="img-circle" alt="Cinque Terre" width="100"
                                  height="100">
                             <h4><?php echo $ride->user->name ?></h4>
 
@@ -236,9 +226,18 @@ if (isset($_POST["search"])) {
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-1">
-                            <button type="text" class="btn btn-primary" onclick="location.href='userpage.php?value_key=<?php echo $ride->db_id?>'">Join</button>
-                        </div>
+                        <?php
+                        if (!$current_user->is_admin) {
+
+                            ?>
+                            <div class="col-sm-1">
+                                <button type="text" class="btn btn-primary"
+                                        onclick="location.href='userpage.php?value_key=<?php echo $ride->db_id ?>'">Join
+                                </button>
+                            </div>
+                            <?php
+                        }
+                        ?>
                     </div>
                 </div>
             </div>

@@ -17,7 +17,6 @@ class Car
 
     public static function save_to_DB($conn, $car){
         $query = "INSERT INTO `car`( `name`, `place_number`) VALUES ('$car->name', $car->num_places)";
-        print $query;
         $res = mysqli_query($conn, $query);
         $query = "SELECT LAST_INSERT_ID();";
         $res = mysqli_query($conn, $query);

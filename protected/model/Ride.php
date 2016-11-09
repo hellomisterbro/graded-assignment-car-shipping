@@ -50,15 +50,14 @@ class Ride
                   VALUES ($user_id,$start_point_id, $end_point_id,FROM_UNIXTIME($start_time),FROM_UNIXTIME($end_time), $ride->price, '$ride->note',$ride->reservation_places, $ride->weekly)";
         $res = mysqli_query($conn, $query);
 
-        if ($ride->exeptions_days) {
-            foreach ($ride->exeptions_days as $exeptions_day) {
-                $mysqldate = date('Y-m-d', $exeptions_day->getTimestamp());
-                $query = "SELECT * FROM `ride` WHERE user_id =$user_id  AND start_point_id = $start_point_id AND end_point_id = $end_point_id  
-                        AND start_time = FROM_UNIXTIME($start_time)AND end_time = FROM_UNIXTIME($end_time) AND price = $ride->price AND note = '$ride->note'";
+        $query = "SELECT LAST_INSERT_ID();";
+        $res = mysqli_query($conn, $query);
+        $row = mysqli_fetch_array($res);
+        $ride_id =  intval($row['LAST_INSERT_ID()']);
 
-                $res = mysqli_query($conn, $query);
-                $row = mysqli_fetch_array($res);
-                $ride_id = $row["id"];
+        if ($ride->exeptions_days) {
+            foreach ($ride->exeptions_days as $exeption_day) {
+                $mysqldate = date('Y-m-d', $exeption_day->getTimestamp());
                 $query = "INSERT INTO `exception_dates`(  `ride_id`, `date`) VALUES ($ride_id,'$mysqldate')";
                 $res = mysqli_query($conn, $query);
             }
@@ -81,7 +80,7 @@ class Ride
 
     public static function get_rides_for_user($user_id, $conn)
     {
-        $query = "SELECT * FROM `ride` WHERE `user_id` ='$user_id'";
+        $query = "SELECT DISTINCT * FROM `ride` WHERE `user_id` ='$user_id'";
         $res = mysqli_query($conn, $query);
 
         $arr = array();
@@ -94,7 +93,6 @@ class Ride
         while ($row = mysqli_fetch_array($res)) {
             $ride_id = $row["ride_id"];
             $query = "SELECT * FROM `ride` WHERE `id` = $ride_id";
-            echo $query;
             $res_rides = mysqli_query($conn, $query);
             if ($res_rides) {
                 $row_ride = mysqli_fetch_array($res_rides);
@@ -149,18 +147,28 @@ class Ride
         $numDays = $diff/60/60/24;
         foreach ($arr as $key => $item) {
             if($item->weekly ){
+
                 $day_of_week = intval($item->start_time->format("N"));
                 $time_of_item = intval($item->start_time->format("Gis"));
                 $day_of_item = intval($item->start_time->format("N"));
                 $start_time_copy = clone $start_time;
                 $is_sutable = false;
-                if($numDays <7){
+
                     $diff = 0;
                     do{
+                        $sql_item_time = $start_time_copy->format("Y-m-d");;
+                        $query = "SELECT * FROM `exception_dates`
+                          WHERE  ride_id = $item->db_id AND date = '$sql_item_time'";
+                        $res = mysqli_query($conn, $query);
+                        $exception_day_for_item = null;
+                        if($res){
+                            $row = mysqli_fetch_array($res);
+                            $exception_day_for_item =  $row["date"];
+                        }
                         if(intval($start_time_copy->format("N")) == $day_of_week && (
                             $day_of_item != intval($end_time->format("N"))
-                            || $time_of_item < intval($end_time->format("Gis")))){
-
+                            || $time_of_item < intval($end_time->format("Gis")))
+                            && $exception_day_for_item != $start_time_copy->format("Y-m-d")){
                             $is_sutable = true;
                             break;
                         }
@@ -176,21 +184,36 @@ class Ride
                     }
                 }
             }
-        }
 
         return $arr;
     }
 
     public static function join_ride($user_id, $ride_id, $conn)
     {
-        $query = "INSERT INTO `passenger`(`user_id`, `ride_id`) VALUES ($user_id, $ride_id)";
-        $res = mysqli_query($conn, $query);
-        if ($res) {
-            $ride = Ride::get_by_id($ride_id, $conn);
-            $places = $ride->reservation_places - 1;
-            $query = "UPDATE `ride` SET `reservation_places`=$places WHERE id = $ride_id";
+        $newride = Ride::get_by_id($ride_id, $conn);
+        if($newride->reservation_places > 0 && $newride->user->db_id != $user_id
+            && ! (Ride::ride_has_user($user_id, $ride_id, $conn))) {
+
+            $query = "INSERT INTO `passenger`(`user_id`, `ride_id`) VALUES ($user_id, $ride_id)";
             $res = mysqli_query($conn, $query);
+            if ($res) {
+                $ride = Ride::get_by_id($ride_id, $conn);
+
+                $places = $ride->reservation_places - 1;
+                if ($places < 0) {
+                    return false;
+                }
+                $query = "UPDATE `ride` SET `reservation_places`=$places WHERE id = $ride_id";
+                $res = mysqli_query($conn, $query);
+            }
         }
+    }
+
+    public static function ride_has_user($user_id, $ride_id, $conn){
+        $query = "SELECT * FROM `passenger` WHERE `user_id` = $user_id AND `ride_id` = $ride_id";
+        $res = mysqli_query($conn, $query);
+        $row = mysqli_fetch_row($res);
+        return $row?true:false;
     }
 
     public static function delete_by_id($ride_id, $conn)
@@ -214,6 +237,5 @@ class Ride
         $time = DateTime::createFromFormat("m/d/Y h:i A", $string);
         return $time;
     }
-
 
 }

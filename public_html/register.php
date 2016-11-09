@@ -22,6 +22,7 @@ function unset_userdata(){
     unset($_POST["country"]);
 }
 
+unset($_SESSION['user']);
 
 if (isset($_POST["submit"])) {
     $success;
@@ -43,6 +44,8 @@ if (isset($_POST["submit"])) {
         $res = User::save_to_DB($conn, $user);
         if($res) {
             $success = "We send a requast to the site administrator. ";
+        } else {
+            $err = "Oops.. Something happend. Try again";
         }
     }
     unset_userdata();
@@ -106,7 +109,7 @@ if (isset($_POST["submit"])) {
     <form class="form-horizontal" method="post">
         <div class="form-group">
             <label for="email">Name:</label>
-            <input name="username"  type="email" class="form-control" id="nm" placeholder="Enter email">
+            <input name="username"  type="email" class="form-control" id="nm" placeholder="Enter name">
         </div>
         <div class="form-group">
             <label for="email">Email:</label>

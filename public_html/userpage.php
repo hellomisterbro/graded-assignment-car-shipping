@@ -22,9 +22,6 @@ require_once("../protected/API/GoogleApi.php");
 require_once("../protected/model/Passenger.php");
 
 
-$price_per_km = 0.10;
-
-
 function unset_newride_data()
 {
     unset($_POST["submit"]);
@@ -44,9 +41,9 @@ function unset_newride_data()
 }
 
 $current_user = User::get_by_id($_SESSION["user"], $conn);
+$price_per_km = 0.3 / ($current_user->car? doubleval($current_user->car->num_places):1);
 $default_image = "./img/content/user-blank.png";
 $user_image = $current_user->photo_path;
-print $user_image;
 
 if (isset($_GET['value_key'])) {
 
@@ -68,6 +65,18 @@ if (isset($_GET["cancel_id"])) {
     exit();
 }
 
+if (isset($_GET["delete_user"])) {
+    User::delete_user($_GET["delete_user"], $conn);
+}
+
+if (isset($_GET["unblock_user"])) {
+    User::unblock_user($_GET["unblock_user"], $conn);
+}
+
+if (isset($_GET["block_user"])) {
+    User::block_user($_GET["block_user"], $conn);
+}
+
 if (isset($_POST["submit"])) {
     $start_point = GoogleApi::geocode($_POST['startpoint']);
     $end_point = GoogleApi::geocode($_POST['endpoint']);
@@ -87,17 +96,17 @@ if (isset($_POST["submit"])) {
     }
 
     $ride = new Ride();
-    if($success) {
+    if ($success) {
         $ride->start_time = DateTime::createFromFormat("m/d/Y h:i A", $_POST["time"]);
-        if ( !$ride->start_time) {
+        if (!$ride->start_time) {
             $err = "Please enter your time";
             $success = false;
         }
 
     }
-     if($success) {
-         $ride->reservation_places = intval($_POST["place_qty"]);
-     }
+    if ($success) {
+        $ride->reservation_places = intval($_POST["place_qty"]);
+    }
     if ($success && !$ride->reservation_places) {
         $err = "Please enter your number of places";
         $success = false;
@@ -106,20 +115,17 @@ if (isset($_POST["submit"])) {
     if ($success) {
 
         $start_point->db_id = Location::save_to_DB($conn, $start_point);
-        $end_point->db_id = Location::save_to_DB($conn, $end_point);
-
-        ;
+        $end_point->db_id = Location::save_to_DB($conn, $end_point);;
         $ride->exeptions_days = array();
 
         $count = 0;
         $key = "exdatepicker" . strval($count);
         while (isset($_POST[$key])) {
-            $key = "exdatepicker" . strval($count);
             $ride->add_day($_POST[$key]);
             $count++;
-        }
+            $key = "exdatepicker" . strval($count);
 
-        array_pop($ride->exeptions_days);
+        }
 
         foreach ($ride->exeptions_days as $exeptions_day) {
             if ($exeptions_day) {
@@ -138,12 +144,11 @@ if (isset($_POST["submit"])) {
         if (!$ride->note) {
             $ride->note = "Note is not written.";
         }
-        $ride->weekly = isset($_POST["weekly"]) ? 0 : 1;
+        $ride->weekly = isset($_POST["weekly"]) ? 1 : 0;
         if ($ride->weekly == 0) {
             $ride->exeptions_days = array();
         }
         $ride->price = doubleval($time_and_distance["distance"]) * $price_per_km;
-
         Ride::save_to_DB($conn, $ride);
         unset_newride_data();
     }
@@ -161,8 +166,8 @@ if (isset($_POST["submit"])) {
 
     <link rel="stylesheet"
           href="../resources/library/bootstrap-datetimepicker-master/build/css/bootstrap-datetimepicker.min.css"/>
-<!--    <link rel="stylesheet"-->
-<!--          href="../resources/library/bootstrap-datepicker-1.3.0/css/datepicker.css"/>-->
+    <!--    <link rel="stylesheet"-->
+    <!--          href="../resources/library/bootstrap-datepicker-1.3.0/css/datepicker.css"/>-->
 
     <script src="../resources/library/jquery-3.1.1.min.js"></script>
     <script src="../resources/library/bootstrap-3.3.7-dist/js/bootstrap.min.js"></script>
@@ -173,15 +178,12 @@ if (isset($_POST["submit"])) {
     <script src="../resources/library/bootstrap-datetimepicker-master/src/js/bootstrap-datetimepicker.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?libraries=places&key=AIzaSyARNH2967Fosb0h9IQsVeh47AAT5FfY6EY"
             type="text/javascript"></script>
-    <script src="js/userpage.js"></script>
-
-    <style type="text/css">
 
 
-    </style>
     <link rel="stylesheet" href="css/navbar.css">
 </head>
 <body>
+
 <div class="container">
     <?php
     if (isset($err)) {
@@ -201,7 +203,8 @@ if (isset($_POST["submit"])) {
             <div class="col-sm-3">
                 <div class="container">
                     <br>
-                    <img src="<?php echo $user_image? $user_image: $default_image?>" class="img-circle" alt="Cinque Terre" width="225"
+                    <img src="<?php echo $user_image ? $user_image : $default_image ?>" class="img-circle"
+                         alt="Cinque Terre" width="225"
                          height="225">
                     <h2><?php echo $current_user->name ?></h2>
                 </div>
@@ -243,7 +246,8 @@ if (isset($_POST["submit"])) {
                 <div class="panel-body">
                     <div class="row">
                         <div class="col-sm-2">
-                            <img src="./img/content/user-blank.png" class="img-circle" alt="Cinque Terre" width="100"
+                            <img src="<?php echo $ride->user->photo_path ?>" class="img-circle" alt="Cinque Terre"
+                                 width="100"
                                  height="100">
                             <h4><?php echo $ride->user->name ?></h4>
                             <?php
@@ -280,10 +284,18 @@ if (isset($_POST["submit"])) {
                             </div>
                             <div class="row">
                                 <div class="col-sm-1">
+                                    <h5>Places left:</h5>
+                                </div>
+                                <div class="col-sm-10">
+                                    <h5><?php echo $ride->reservation_places ?></h5>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-1">
                                     <h5>weekly:</h5>
                                 </div>
                                 <div class="col-sm-10">
-                                    <h5><?php echo  $ride->weekly?"YES":"NO"?></h5>
+                                    <h5><?php echo $ride->weekly ? "YES" : "NO" ?></h5>
                                 </div>
                             </div>
                         </div>
@@ -299,9 +311,43 @@ if (isset($_POST["submit"])) {
         </div>
         <?php
     }
+    if ($current_user->is_admin) {
+        ?>
+
+        <div class="container">
+            <div class="container">
+                <h3>Users</h3>
+                <table class="table table-condensed">
+                    <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php
+                    $all_users = User::get_all_users($conn);
+                    foreach ($all_users as $loc_user) {
+                        ?>
+                        <tr>
+                            <td><?php echo $loc_user->name ?></td>
+                            <td><?php echo $loc_user->email ?></td>
+                            <td><?php echo $loc_user->is_enabled ? 'Unblocked' : 'Blocked' ?></td>
+                            <td><a href="settings.php?user_to_change=<?php echo $loc_user->db_id ?>">Udate info of the
+                                    user</a></td>
+                        </tr>
+                        <?php
+                    }
+                    ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php
+    }
     ?>
-
-
     <br>
     <br>
     <br>
@@ -327,7 +373,9 @@ if (isset($_POST["submit"])) {
                             </div>
                         </div>
                         <script type="text/javascript">
-                      
+                            $(function () {
+                                $('#datetimepicker1').datetimepicker({minDate: new Date()});
+                            });
                         </script>
                     </div>
 
@@ -350,22 +398,9 @@ if (isset($_POST["submit"])) {
                     <!--    Weekly chrckbox-->
                     <form method="post">
                         <div class="checkbox">
-                            <script>
-                                $(document).ready(function () {
-                                    $('[data-toggle="popover"]').popover();
 
-                                });
-                            </script>
                             <label>
                                 <input type="checkbox" name="weekly" id="weekly_checkbox" value="">Weekly
-                                <script>
-                                    document.getElementById("addBtn").addEventListener("click", myFunction);
-
-                                    function myFunction() {
-                                        document.getElementById("newRide").style.display = "block";
-                                        window.scrollBy(0, 1000)
-                                    }
-                                </script>
                             </label>
                             (<a title="Info" data-toggle="popover" data-trigger="hover"
                                 data-content="By checking it you state that you will do your ride every week">See
@@ -388,25 +423,7 @@ if (isset($_POST["submit"])) {
                                 </div>
                                 <input type="button" class="addmore" value="Add more">
                                 <br><br>
-                                <script>
-                                    var idCount = 1;
-                                    $(document).ready(function () {
-                                        $('.addmore').on('click', function () {
 
-                                            var element = $(".mytemplate").clone();
-                                            element.removeClass("mytemplate").show().appendTo(".dates");
-                                            console.log(element.children()[0]);
-                                            var datepickerEl = element.children()[0];
-                                            datepickerEl.name = "exdatepicker" + idCount;
-                                            idCount++;
-                                            ;
-                                        });
-                                        $(document).on("focus", ".datepicker", function () {
-                                            $(this).datepicker();
-                                        });
-                                    });
-
-                                </script>
                             </div>
                             <div class='col-sm-6'></div>
                             <div class='col-sm-4'></div>
@@ -414,14 +431,19 @@ if (isset($_POST["submit"])) {
                     </div>
                     <!--    Number of people in the car-->
                     <div class="form-group">
-                        <label for="sel1">Select list:</label>
+                        <label for="sel1">Avaliable places in your car:</label>
                         <select name="place_qty" class="form-control" id="sel1">
-                            <option>1</option>
-                            <option>2</option>
-                            <option>3</option>
-                            <option>4</option>
+                            <?php for ($var = 1; $var <= $current_user->car->num_places; $var++) {
+                                echo '<option>' . $var . '</option>';
+                            }
+                            ?>
                         </select>
                     </div>
+
+                    <div class="alert alert-info">
+                        <strong>Info:</strong> Price and arriving time are calculated automatically based on your distance.
+                    </div>
+
                     <!--  A note for the trip-->
                     <div class="form-group">
                         <label for="comment">Please enter a note for your trip:</label>
@@ -440,23 +462,28 @@ if (isset($_POST["submit"])) {
 
 
         </div>
-        <div style="float: right;">
-            <button id="addBtn" type="button" class="btn btn-primary">Add new ride</button>
-            <script>
-                document.getElementById("addBtn").addEventListener("click", myFunction);
+        <?php
+        if (!$current_user->is_admin && $current_user->car) {
 
-                function myFunction() {
-                    document.getElementById("addBtn").style.display = "none";
-                    document.getElementById("newRide").style.display = "block";
-                    window.scrollBy(0, 1000)
-                }
-            </script>
+            ?>
+            <div style="float: right;">
+                <button id="addBtn" type="button" class="btn btn-primary">Add new ride</button>
 
-            <br>
-        </div>
+                <br>
+            </div>
+            <?php
+        }
+        if (!$current_user->car) {
+            ?>
+            <div class="alert alert-info">
+                <strong>Info:</strong> Indicate a car in Settings in order to create a new ride.
+            </div>
 
+            <?php
+        }
+        ?>
     </form>
-<!--    <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/js/bootstrap-datepicker.min.js"></script>-->
-
+    <!--    <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.3.0/js/bootstrap-datepicker.min.js"></script>-->
+    <script src="js/userpage.js"></script>
 </body>
 </html>

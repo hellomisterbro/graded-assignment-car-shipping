@@ -22,6 +22,12 @@ require_once("../protected/API/ValidityHandler.php");
 $success;
 $err;
 $current_user = User::get_by_id($_SESSION["user"], $conn);
+$admin_user;
+
+if(isset($_GET["user_to_change"]) && $current_user->is_admin){
+    $admin_user = $current_user;
+    $current_user = User::get_by_id($_GET["user_to_change"], $conn);
+}
 
 if(isset($_SESSION["success"])){
     $success = "Information is updated successfully";
@@ -38,7 +44,6 @@ if (isset($_POST["submit"])) {
     $full_path_img = $folder . $pic;
     $error_uplodaing_file = false;
     if (!move_uploaded_file($pic_loc, $folder . $pic)) {
-        print "ERROR";
         $error_uplodaing_file = true;
     }
 
@@ -46,6 +51,9 @@ if (isset($_POST["submit"])) {
     $car->name = $_POST["carname"];
     $car->num_places = intval($_POST["place_qty"]);
     $user = new User();
+
+    print $car->name;
+    print $car->num_places;
 
     $user->name = $_POST["username"];
     $user->db_id = $current_user->db_id;
@@ -68,7 +76,12 @@ if (isset($_POST["submit"])) {
         if ($res) {
             $success = "Your info is succesfully updated.";
             $_SESSION["success"] = true;
-            header("Location: settings.php");
+            if($admin_user){
+                header("Location: settings.php?user_to_change=$current_user->db_id");
+            } else {
+                header("Location: settings.php");
+            }
+
         }
     }
 
@@ -124,6 +137,36 @@ if (isset($_POST["submit"])) {
     }
     ?>
 
+    <?php
+    if($admin_user) {
+        ?>
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-2">
+                </div>
+                <div class="col-sm-5">
+                    <button class="btn btn-danger" onclick="location.href='userpage.php?delete_user=<?php echo $current_user->db_id?>';">Delete user</button>
+                </div>
+                <?php
+                if(!$current_user->is_enabled) {
+                    ?>
+                    <div class="col-sm-4">
+                        <button class="btn btn-success" onclick="location.href='userpage.php?unblock_user=<?php echo $current_user->db_id?>';">Unblock user</button>
+                    </div>
+                    <?php
+                } else {
+                    ?>
+                    <div class="col-sm-4" onclick="location.href='userpage.php?block_user=<?php echo $current_user->db_id?>';">
+                        <button class="btn btn-success">Block user</button>
+                    </div>
+                    <?php
+                }
+                ?>
+            </div>
+        </div>
+        <?php
+    }
+    ?>
     <form class="form-horizontal" action="" method="post" enctype="multipart/form-data">
         <div class="form-group">
             <label for="email">Name:</label>
@@ -185,7 +228,7 @@ if (isset($_POST["submit"])) {
             <button type="submit" name="submit" class="btn btn-primary">Submit</button>
             <br>
         </div>
-
+<br><br><br>
     </form>
 
 

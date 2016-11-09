@@ -28,8 +28,8 @@ class User
         $password = hash('sha256', $user->password);
         $query = "INSERT INTO `user`( `name`, `email`, `password`, `phone`,
                                     `country`,`desc`, `is_enabled`, `is_admin`)
-                  VALUES ('$user->name','$user->desc','$user->email','$password', '$user->phone',
-                   '$user->country', 0, 0)";
+                  VALUES ('$user->name','$user->email','$password', '$user->phone',
+                   '$user->country','$user->desc', 0, 0)";
 
         $res = mysqli_query($conn, $query);
         return $res ? true : false;
@@ -38,7 +38,7 @@ class User
     public static function update_DB($user, $conn){
         $db_user = User::get_by_id($user->db_id, $conn);
 
-        $car_id = $user->car->name =='' ? $db_user->car->db_id: Car::save_to_DB($conn, $user->car);
+        $car_id = $user->car->name =='' ? $db_user->car->db_id: (Car::save_to_DB($conn, $user->car));
         if(!$car_id){
             $car_id = 'NULL';
         }
@@ -54,7 +54,6 @@ class User
                               SET `name` = '$user->name', `password` = '$password',`path_photo` = '$user->photo_path', `car_id` = $car_id,  `email` = '$user->email', `phone` = '$user->phone',
                                     `country` = '$user->country', `desc` = '$desc', `is_enabled` = 0
                               WHERE `id` = $user->db_id";
-            print $query;
             $res = mysqli_query($conn, $query);
             if($res){
                 return true;
@@ -79,11 +78,22 @@ class User
             $user->desc = $row["desc"];
             $user->photo_path = $row["path_photo"];
             $user->car = Car::get_by_id($row["car_id"], $conn);
-            $user->is_enabled = $row["is_enabled"];
-            $user->is_admin= $row["is_admin"];
+            $user->is_enabled = boolval($row["is_enabled"]);
+            $user->is_admin= boolval($row["is_admin"]);
             return $user;
         }
         return null;
+    }
+
+    public static function get_all_users($conn){
+        $query = "SELECT * FROM `user` WHERE `is_admin` <> 1";
+        $res = mysqli_query($conn, $query);
+        $arr = array();
+        while ($row = mysqli_fetch_array($res)) {
+            $user = User::get_by_id($row["id"], $conn);
+            array_push($arr, $user);
+        }
+        return $arr;
     }
 
     public static function authorization($email, $pass, $conn){
@@ -91,10 +101,41 @@ class User
         $res = mysqli_query($conn, "SELECT * FROM `user` WHERE `email` ='$email'");
         $row = mysqli_fetch_array($res);
         if ($pass == $row["password"]) {
-            return $row["id"];
+            if(boolval($row["is_enabled"])){
+                return $row["id"];
+            } else {
+                return false;
+            }
         }
         return null;
     }
 
+    public static function delete_user($user_id, $conn){
+        $res2 = true; $res3 = true;
+        $query = "DELETE FROM `ride` WHERE `user_id` = $user_id";
+        $res1 = mysqli_query($conn, $query);
+        if($res1) {
+            $query = "SELECT * FROM `passenger` WHERE `user_id` = $user_id";
+            $res2 = mysqli_query($conn, $query);
+            while ($row = mysqli_fetch_array($res2)) {
+                Ride::unjoin($user_id, $row["ride_id"], $conn);
+            }
+            $query = "DELETE FROM `passenger` WHERE `user_id` = $user_id";
+            $res3 = mysqli_query($conn, $query);
+        }
+        $query = "DELETE FROM `user` WHERE `id` = $user_id";
+        $res4 = mysqli_query($conn, $query);
+        return $res1&&$res2&&$res3 ? true : false;
+    }
+
+    public static function block_user($user_id, $conn){
+        $query = "UPDATE `user` SET is_enabled = 0 WHERE `id` = $user_id";
+        $res = mysqli_query($conn, $query);
+    }
+
+    public static function unblock_user($user_id, $conn){
+        $query = "UPDATE `user` SET is_enabled = 1 WHERE `id` = $user_id";
+        $res = mysqli_query($conn, $query);
+    }
 
 }

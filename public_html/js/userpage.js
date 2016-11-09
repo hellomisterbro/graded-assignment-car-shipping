@@ -14,6 +14,38 @@ function initialize_end() {
 }
 google.maps.event.addDomListener(window, 'load', initialize_end);
 
-$(function () {
-    $('#datetimepicker1').datetimepicker();
+$(document).ready(function () {
+    $('[data-toggle="popover"]').popover();
+
 });
+
+document.getElementById("addBtn").addEventListener("click", myFunction);
+
+function myFunction() {
+    document.getElementById("newRide").style.display = "block";
+    window.scrollBy(0, 1000)
+}
+
+var idCount = 1;
+$(document).ready(function () {
+    $('.addmore').on('click', function () {
+
+        var element = $(".mytemplate").clone();
+        element.removeClass("mytemplate").show().appendTo(".dates");
+        console.log(element.children()[0]);
+        var datepickerEl = element.children()[0];
+        datepickerEl.name = "exdatepicker" + idCount;
+        idCount++;
+        ;
+    });
+    $(document).on("focus", ".datepicker", function () {
+        $(this).datepicker();
+    });
+});
+document.getElementById("addBtn").addEventListener("click", myFunction);
+
+function myFunction() {
+    document.getElementById("addBtn").style.display = "none";
+    document.getElementById("newRide").style.display = "block";
+    window.scrollBy(0, 1000)
+}
